@@ -220,6 +220,39 @@ class MainWindow(QtWidgets.QMainWindow):
             
         self.status_bar.showMessage(f"Found {len(results)} results.", 5000)
         self.set_ui_enabled(True)
+    
+    @QtCore.pyqtSlot(QtCore.QPoint)
+    def show_results_context_menu(self, pos):
+        """Creates and shows a context menu when right-clicking on a result item."""
+        # Get the item that was right-clicked. If the click was not on an item, do nothing.
+        item = self.results_list.itemAt(pos)
+        if item is None:
+            return
+
+        # Create the context menu
+        context_menu = QtWidgets.QMenu(self)
+
+        # Create the "Find More Like This" action
+        find_similar_action = QtWidgets.QAction(QtGui.QIcon.fromTheme("system-search"), "Find More Like This", self)
+        
+        # Connect the action's 'triggered' signal to a function that will start the search.
+        # We use a lambda function here to pass the specific item that was clicked.
+        find_similar_action.triggered.connect(lambda: self.search_by_result_item(item))
+        
+        # Add the action to the menu
+        context_menu.addAction(find_similar_action)
+
+        # --- Future actions can be added here ---
+        # For example, an action to open the file's containing folder.
+        context_menu.addSeparator()
+        open_folder_action = QtWidgets.QAction(QtGui.QIcon.fromTheme("folder"), "Open Containing Folder", self)
+        open_folder_action.triggered.connect(lambda: self.open_containing_folder(item))
+        context_menu.addAction(open_folder_action)
+
+
+        # Show the menu at the position of the mouse click
+        # The mapToGlobal function converts the widget's local coordinates to screen coordinates.
+        context_menu.exec_(self.results_list.mapToGlobal(pos))
 
     @QtCore.pyqtSlot(int, int, str)
     def update_progress(self, value, total, msg):
