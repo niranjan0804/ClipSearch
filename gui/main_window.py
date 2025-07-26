@@ -102,6 +102,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.results_list.setResizeMode(QtWidgets.QListWidget.Adjust)
         self.results_list.setSpacing(config.RESULTS_GRID_SPACING)
         self.results_list.itemDoubleClicked.connect(self.open_image_in_viewer)
+        self.results_list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.results_list.customContextMenuRequested.connect(self.show_results_context_menu)
         main_layout.addWidget(self.results_list)
 
         # --- Status Bar ---
@@ -176,11 +178,24 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._start_search(query, top_k)
 
     def _start_search(self, query, top_k):
-        """Helper to run search on the worker thread and connect the result."""
-        # This is a lambda function to make the connection simpler.
-        # It calls the engine's search method and then emits the result on the UI thread.
-        search_task = lambda: self.search_results_ready.emit(self.engine.search(query, top_k))
-        QtCore.QTimer.singleShot(0, search_task) # Run the task in the engine's thread event loop
+        """
+        Helper to run a search on the worker thread.
+        It calls the engine's search method and ensures the result is emitted
+        via the search_results_ready signal.
+        """
+        # This is a cleaner way to invoke a method on a worker thread
+        # and have it perform a task. It's more readable than a lambda in a timer.
+        QtCore.QMetaObject.invokeMethod(
+            self,  # The target object to emit the final signal
+            "__emit_search_results", # The method to call on this object
+            QtCore.Qt.QueuedConnection, # Ensure it runs in the UI thread
+            QtCore.Q_ARG(list, self.engine.search(query, top_k)) # The argument is the *result* of the search
+        )
+
+    @QtCore.pyqtSlot(list)
+    def __emit_search_results(self, results):
+        """Internal slot to safely emit the search results signal."""
+        self.search_results_ready.emit(results)
 
     # --- UI Update Slots (connected to engine signals) ---
 
