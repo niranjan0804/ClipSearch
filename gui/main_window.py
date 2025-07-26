@@ -91,7 +91,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.current_directory = None
         self._init_ui()
         self.set_ui_enabled(False) # Disable most UI elements until a directory is chosen
-
+        self._load_settings() # Restore previous session's state
+        
     def _init_ui(self):
         """Initializes all widgets and layouts."""
         self.setWindowTitle(f"{config.APP_NAME} v{config.APP_VERSION}")
@@ -441,9 +442,43 @@ class MainWindow(QtWidgets.QMainWindow):
         path = item.data(QtCore.Qt.UserRole)
         url = QtCore.QUrl.fromLocalFile(path)
         QtGui.QDesktopServices.openUrl(url)
+    
+    def _load_settings(self):
+        """Loads and applies settings from the previous session."""
+        settings = QtCore.QSettings("MyCompany", config.APP_NAME)
+        
+        # Restore window geometry
+        geometry = settings.value("geometry")
+        if geometry:
+            self.restoreGeometry(geometry)
+            
+        # Restore and auto-index the last directory
+        last_directory = settings.value("last_directory")
+        if last_directory and os.path.isdir(last_directory):
+            # We don't call select_directory directly, as that opens a dialog.
+            # Instead, we perform the same actions manually.
+            self.current_directory = last_directory
+            self.setWindowTitle(f"{config.APP_NAME} - {os.path.basename(last_directory)}")
+            self.set_ui_enabled(False, is_indexing=True)
+            # Invoke the indexing method on the worker thread
+            QtCore.QMetaObject.invokeMethod(self.engine, "index_directory", QtCore.Qt.QueuedConnection,
+                                            QtCore.Q_ARG(str, self.current_directory))
 
     def closeEvent(self, event):
-        """Properly shuts down the worker thread when the window is closed."""
+        """Saves settings and properly shuts down the worker thread when the window is closed."""
+        # --- SAVE SETTINGS ---
+        # Create a QSettings object. The arguments are your organization and application name.
+        # This ensures settings are stored in a unique, standard location.
+        settings = QtCore.QSettings("MyCompany", config.APP_NAME)
+        
+        # Save window geometry (size and position)
+        settings.setValue("geometry", self.saveGeometry())
+        
+        # Save the last used directory, if one was selected
+        if self.current_directory:
+            settings.setValue("last_directory", self.current_directory)
+
+        # --- SHUT DOWN THREAD ---
         self.worker_thread.quit()
         self.worker_thread.wait() # Wait for the thread to finish
         event.accept()
