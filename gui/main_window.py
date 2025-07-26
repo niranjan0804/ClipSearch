@@ -153,7 +153,7 @@ class MainWindow(QtWidgets.QMainWindow):
         top_controls_layout.addStretch()
         
         self.cancel_button = QtWidgets.QPushButton(QtGui.QIcon.fromTheme("process-stop"), "Cancel Indexing")
-        self.cancel_button.clicked.connect(self.engine.stop_indexing)
+        self.cancel_button.clicked.connect(self.handle_cancel_click)
         self.cancel_button.setEnabled(False)
         top_controls_layout.addWidget(self.cancel_button)
         
@@ -337,6 +337,15 @@ class MainWindow(QtWidgets.QMainWindow):
     def __emit_search_results(self, results):
         """Internal slot to safely emit the search results signal."""
         self.search_results_ready.emit(results)
+    
+    @QtCore.pyqtSlot()
+    def handle_cancel_click(self):
+        """Handles the user clicking the 'Cancel' button."""
+        self.status_bar.showMessage("Cancelling task...")
+        # Immediately disable the button to prevent multiple clicks
+        self.cancel_button.setEnabled(False) 
+        # Tell the engine to stop
+        self.engine.stop_indexing()
 
     # --- UI Update Slots (connected to engine signals) ---
 
