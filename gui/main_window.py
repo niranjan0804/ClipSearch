@@ -169,6 +169,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"Images ({' '.join(['*' + ext for ext in config.IMAGE_EXTENSIONS])})"
             )
             if query:
+                query = os.path.normpath(query) # Normalize the path from the dialog
                 self.status_bar.showMessage(f"Searching for images similar to {os.path.basename(query)}...")
                 self.set_ui_enabled(False)
                 top_k = self.top_k_spinbox.value()

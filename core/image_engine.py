@@ -91,9 +91,9 @@ class ImageEngine(QObject):
         self._is_indexing = True
         try:
             self.current_directory = image_folder
-            all_paths = [os.path.join(root, file)
-                         for root, _, files in os.walk(image_folder)
-                         for file in files if is_image_file(file)]
+            all_paths = [os.path.normpath(os.path.join(root, file))
+             for root, _, files in os.walk(image_folder)
+             for file in files if is_image_file(file)]
 
             if not all_paths:
                 self.error.emit("No images found in the selected directory.")
