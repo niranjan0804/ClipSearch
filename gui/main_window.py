@@ -254,6 +254,45 @@ class MainWindow(QtWidgets.QMainWindow):
         # The mapToGlobal function converts the widget's local coordinates to screen coordinates.
         context_menu.exec_(self.results_list.mapToGlobal(pos))
 
+    def search_by_result_item(self, item):
+        """Starts a new search using a result item as the query image."""
+        # Retrieve the full file path we stored in the item's UserRole data
+        query_path = item.data(QtCore.Qt.UserRole)
+        
+        if query_path and os.path.exists(query_path):
+            self.status_bar.showMessage(f"Finding images similar to {os.path.basename(query_path)}...")
+            self.set_ui_enabled(False)
+            top_k = self.top_k_spinbox.value()
+            
+            # Reuse our existing search helper method
+            self._start_search(query_path, top_k)
+        else:
+            self.show_error_message(f"File not found: {query_path}")
+
+    def open_containing_folder(self, item):
+        """Opens the system's file explorer to the location of the selected item."""
+        path = item.data(QtCore.Qt.UserRole)
+        if not path:
+            return
+            
+        # QDesktopServices.openUrl can open local file paths.
+        # We use QUrl.fromLocalFile to ensure the path format is correct for the OS.
+        # To open the folder and select the file, we need a bit of platform-specific logic.
+        
+        # This is a more advanced way to show the file in the folder.
+        # The simple way is: QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(os.path.dirname(path)))
+        
+        # Let's use a robust method that tries to select the file.
+        import subprocess
+        import sys
+        
+        if sys.platform == 'win32':
+            subprocess.run(['explorer', '/select,', path])
+        elif sys.platform == 'darwin': # macOS
+            subprocess.run(['open', '-R', path])
+        else: # linux
+            subprocess.run(['xdg-open', os.path.dirname(path)])
+            
     @QtCore.pyqtSlot(int, int, str)
     def update_progress(self, value, total, msg):
         self.status_bar.showMessage(msg)
