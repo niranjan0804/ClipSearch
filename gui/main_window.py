@@ -67,6 +67,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super().__init__()
+        
+        self.is_first_load = True
 
         # --- Worker Thread Setup ---
         # 1. Create an ImageEngine instance (our worker object)
@@ -404,12 +406,34 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(str)
     def on_task_finished(self, msg):
+        """
+        Handles cleanup and next steps after a worker task is finished.
+        This is a key control-flow method.
+        """
         self.status_bar.showMessage(msg, 5000)
         self.progress_bar.hide()
-        # Only enable the search UI if a directory has been successfully indexed
+        self.cancel_button.setEnabled(False) # Always disable cancel on finish
+
+        # Check if the task that just finished was a model load
+        if msg == "Model loaded successfully." and self.is_first_load:
+            self.is_first_load = False # Prevent this from running again
+            
+            # Now that the model is loaded, check if we should auto-load a directory
+            settings = QtCore.QSettings("MyCompany", config.APP_NAME)
+            last_directory = settings.value("last_directory")
+            if last_directory and os.path.isdir(last_directory):
+                print(f"Auto-indexing last directory: {last_directory}")
+                self.current_directory = last_directory
+                self.setWindowTitle(f"{config.APP_NAME} - {os.path.basename(last_directory)}")
+                self.set_ui_enabled(False, is_indexing=True)
+                QtCore.QMetaObject.invokeMethod(self.engine, "index_directory", QtCore.Qt.QueuedConnection,
+                                                QtCore.Q_ARG(str, self.current_directory))
+                return # Don't fall through to the set_ui_enabled below
+
+        # This part runs after indexing or if no auto-load was needed
         if self.engine.image_features is not None:
             self.set_ui_enabled(True)
-        else: # e.g. model finished loading but no dir indexed yet
+        else: # e.g., model finished loading but no dir indexed yet
             self.dir_button.setEnabled(True)
             self.model_combo.setEnabled(True)
 
@@ -451,18 +475,6 @@ class MainWindow(QtWidgets.QMainWindow):
         geometry = settings.value("geometry")
         if geometry:
             self.restoreGeometry(geometry)
-            
-        # Restore and auto-index the last directory
-        last_directory = settings.value("last_directory")
-        if last_directory and os.path.isdir(last_directory):
-            # We don't call select_directory directly, as that opens a dialog.
-            # Instead, we perform the same actions manually.
-            self.current_directory = last_directory
-            self.setWindowTitle(f"{config.APP_NAME} - {os.path.basename(last_directory)}")
-            self.set_ui_enabled(False, is_indexing=True)
-            # Invoke the indexing method on the worker thread
-            QtCore.QMetaObject.invokeMethod(self.engine, "index_directory", QtCore.Qt.QueuedConnection,
-                                            QtCore.Q_ARG(str, self.current_directory))
 
     def closeEvent(self, event):
         """Saves settings and properly shuts down the worker thread when the window is closed."""
