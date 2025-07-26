@@ -57,6 +57,38 @@ class ImageDropLabel(QtWidgets.QLabel):
         self.setProperty("is_active", "false")
         self.style().polish(self)
         self.image_dropped.emit(file_path) # Emit the signal with the file path
+        
+class ThumbnailWorker(QtCore.QObject):
+    """A worker that generates QListWidgetItems with thumbnails in the background."""
+    finished = QtCore.pyqtSignal(list) # Signal will emit the list of generated items
+
+    def __init__(self, results, parent=None):
+        super().__init__(parent)
+        self.results = results
+
+    @QtCore.pyqtSlot()
+    def run(self):
+        """Processes the search results and creates widget items."""
+        items = []
+        for score, path in self.results:
+            try:
+                pixmap = QtGui.QPixmap(path)
+                icon = QtGui.QIcon(pixmap.scaled(config.THUMBNAIL_SIZE, config.THUMBNAIL_SIZE,
+                                                QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+                
+                # We can't create a QListWidgetItem here because it's a GUI object.
+                # Instead, we prepare all the data needed to create it.
+                item_data = {
+                    'icon': icon,
+                    'text': f"Score: {score:.3f}",
+                    'tooltip': f"{os.path.basename(path)}\nScore: {score:.3f}",
+                    'path': path
+                }
+                items.append(item_data)
+            except Exception as e:
+                print(f"Error creating thumbnail for {path}: {e}")
+        
+        self.finished.emit(items)
 
 class MainWindow(QtWidgets.QMainWindow):
     """The main application window."""
@@ -70,6 +102,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         self.is_first_load = True
 
+        self.thumbnail_thread = None
         # --- Worker Thread Setup ---
         # 1. Create an ImageEngine instance (our worker object)
         self.engine = ImageEngine()
@@ -309,24 +342,46 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(list)
     def display_results(self, results):
+        """
+        Receives search results and starts a background worker to generate thumbnails.
+        """
         self.results_list.clear()
         if not results:
             self.status_bar.showMessage("No results found.", 5000)
             self.set_ui_enabled(True)
             return
 
-        for score, path in results:
+        # --- DELEGATE TO WORKER ---
+        self.thumbnail_thread = QtCore.QThread()
+        self.thumbnail_worker = ThumbnailWorker(results)
+        self.thumbnail_worker.moveToThread(self.thumbnail_thread)
+        
+        # When the worker is done, call a new method to populate the list
+        self.thumbnail_worker.finished.connect(self.populate_results_list)
+        
+        # Clean up the thread and worker when finished
+        self.thumbnail_thread.started.connect(self.thumbnail_worker.run)
+        self.thumbnail_worker.finished.connect(self.thumbnail_thread.quit)
+        self.thumbnail_worker.finished.connect(self.thumbnail_worker.deleteLater)
+        self.thumbnail_thread.finished.connect(self.thumbnail_thread.deleteLater)
+        
+        self.thumbnail_thread.start()
+    
+    @QtCore.pyqtSlot(list)
+    def populate_results_list(self, items_data):
+        """
+        Receives the prepared thumbnail data from the worker and populates the QListWidget.
+        This method runs on the main UI thread.
+        """
+        for data in items_data:
             item = QtWidgets.QListWidgetItem()
-            pixmap = QtGui.QPixmap(path)
-            icon = QtGui.QIcon(pixmap.scaled(config.THUMBNAIL_SIZE, config.THUMBNAIL_SIZE,
-                                            QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
-            item.setIcon(icon)
-            item.setText(f"Score: {score:.3f}")
-            item.setData(QtCore.Qt.UserRole, path) # Store full path for later use
-            item.setToolTip(f"{os.path.basename(path)}\nScore: {score:.3f}")
+            item.setIcon(data['icon'])
+            item.setText(data['text'])
+            item.setToolTip(data['tooltip'])
+            item.setData(QtCore.Qt.UserRole, data['path'])
             self.results_list.addItem(item)
             
-        self.status_bar.showMessage(f"Found {len(results)} results.", 5000)
+        self.status_bar.showMessage(f"Found {len(items_data)} results.", 5000)
         self.set_ui_enabled(True)
     
     @QtCore.pyqtSlot(QtCore.QPoint)
