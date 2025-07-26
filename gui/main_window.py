@@ -286,6 +286,11 @@ class MainWindow(QtWidgets.QMainWindow):
         It calls the engine's search method and ensures the result is emitted
         via the search_results_ready signal.
         """
+        
+        if self.engine._is_indexing:
+            self.show_error_message("Please wait for the current indexing task to complete before starting a search.")
+            return
+    
         # This is a cleaner way to invoke a method on a worker thread
         # and have it perform a task. It's more readable than a lambda in a timer.
         QtCore.QMetaObject.invokeMethod(
