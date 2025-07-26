@@ -8,6 +8,56 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from .. import config
 from ..core.image_engine import ImageEngine
 
+class ImageDropLabel(QtWidgets.QLabel):
+    """A custom QLabel that accepts image file drops."""
+    # Define a new signal that will emit the path of the dropped file
+    image_dropped = QtCore.pyqtSignal(str)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setAcceptDrops(True)
+        self.setAlignment(QtCore.Qt.AlignCenter)
+        self.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.setFrameShadow(QtWidgets.QFrame.Sunken)
+        self.setText("Drop Query Image Here")
+        self.setStyleSheet("""
+            ImageDropLabel {
+                border: 2px dashed #aaa;
+                border-radius: 5px;
+                background-color: #f0f0f0;
+                color: #888;
+            }
+            ImageDropLabel[is_active="true"] {
+                border-color: #0078d7;
+                background-color: #e0eafc;
+            }
+        """)
+
+    def dragEnterEvent(self, event):
+        """Event handler for when a drag enters the widget."""
+        # Check if the dragged data contains URLs (file paths)
+        if event.mimeData().hasUrls():
+            # Get the path of the first file
+            file_path = event.mimeData().urls()[0].toLocalFile()
+            # Check if the file is a supported image type
+            from ..core.image_engine import is_image_file # Local import to avoid circular dependency
+            if is_image_file(file_path):
+                event.acceptProposedAction()
+                self.setProperty("is_active", "true") # Set a property for styling
+                self.style().polish(self) # Force a style refresh
+
+    def dragLeaveEvent(self, event):
+        """Event handler for when a drag leaves the widget."""
+        self.setProperty("is_active", "false")
+        self.style().polish(self)
+
+    def dropEvent(self, event):
+        """Event handler for when the item is dropped."""
+        file_path = event.mimeData().urls()[0].toLocalFile()
+        self.setProperty("is_active", "false")
+        self.style().polish(self)
+        self.image_dropped.emit(file_path) # Emit the signal with the file path
+
 class MainWindow(QtWidgets.QMainWindow):
     """The main application window."""
 
