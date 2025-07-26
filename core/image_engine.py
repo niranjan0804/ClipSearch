@@ -1,4 +1,4 @@
-# In clip_search/core/image_engine.py
+# In clip_search/core/image_engine.py (CORRECTED VERSION)
 
 import os
 import hashlib
@@ -6,7 +6,7 @@ import pickle
 import torch
 import open_clip
 from PIL import Image
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot # <-- Import pyqtSlot
 
 # Use relative import to access config from a sibling package
 from .. import config
@@ -23,10 +23,6 @@ class ImageEngine(QObject):
     Manages model loading, image indexing, caching, and searching.
     This class is designed to be moved to a separate thread to avoid freezing the UI.
     """
-    # --- Signals for UI communication ---
-    # progress: (current_step, total_steps, message_string)
-    # finished: (message_string)
-    # error: (error_message_string)
     progress = pyqtSignal(int, int, str)
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
@@ -37,17 +33,18 @@ class ImageEngine(QObject):
         self.model = None
         self.preprocess = None
         self.model_key = None
-        self._is_indexing = False  # Flag to control the indexing loop
+        self._is_indexing = False
 
-        # Data for the currently indexed directory
         self.image_paths = []
         self.image_features = None
         self.current_directory = None
 
+    @pyqtSlot() # <-- ADDED: Mark as a slot with no arguments
     def stop_indexing(self):
         """Signals the indexing loop to terminate early."""
         self._is_indexing = False
 
+    @pyqtSlot(str) # <-- ADDED: Mark as a slot that takes one string argument
     def load_model(self, model_key):
         """Loads a specified CLIP model from config.py."""
         if self.model is not None and self.model_key == model_key:
@@ -63,7 +60,7 @@ class ImageEngine(QObject):
                 pretrained=model_info['pretrained'],
                 device=self.device
             )
-            self.model.eval()  # Set model to evaluation mode
+            self.model.eval()
             self.model_key = model_key
             self.finished.emit("Model loaded successfully.")
             print(f"Model '{model_key}' loaded on {self.device}.")
@@ -88,6 +85,7 @@ class ImageEngine(QObject):
             hash_obj.update(str(os.path.getmtime(file_path)).encode())
         return hash_obj.hexdigest()
 
+    @pyqtSlot(str) # <-- ADDED: Mark as a slot that takes one string argument
     def index_directory(self, image_folder):
         """The main worker function to index all images in a directory."""
         self._is_indexing = True
@@ -101,7 +99,6 @@ class ImageEngine(QObject):
                 self.error.emit("No images found in the selected directory.")
                 return
 
-            # --- Caching Logic ---
             cache_path = self._get_cache_path(image_folder)
             os.makedirs(os.path.dirname(cache_path), exist_ok=True)
             cached_data, directory_hash = {}, self._get_directory_hash(image_folder, all_paths)
@@ -118,11 +115,10 @@ class ImageEngine(QObject):
 
             paths_to_process = [p for p in all_paths if p not in cached_data]
             
-            # --- Feature Extraction ---
             if paths_to_process:
                 with torch.no_grad():
                     for i in range(0, len(paths_to_process), config.BATCH_SIZE):
-                        if not self._is_indexing:  # Check for cancellation signal
+                        if not self._is_indexing:
                             self.finished.emit("Indexing cancelled.")
                             return
 
@@ -147,14 +143,11 @@ class ImageEngine(QObject):
                         processed_count = len(cached_data)
                         self.progress.emit(processed_count, len(all_paths), f"Indexing: {processed_count}/{len(all_paths)}")
 
-            # --- Save Cache and Finalize ---
             with open(cache_path, 'wb') as f:
                 pickle.dump({'features': cached_data, 'directory_hash': directory_hash}, f)
             
             self.image_paths = all_paths
-            # Ensure features are in the same order as paths
             ordered_features = [cached_data.get(p) for p in self.image_paths]
-            # Filter out any paths that failed to produce a feature
             self.image_paths = [p for i, p in enumerate(self.image_paths) if ordered_features[i] is not None]
             self.image_features = torch.stack([f for f in ordered_features if f is not None]).to(self.device)
             
@@ -163,22 +156,20 @@ class ImageEngine(QObject):
         except Exception as e:
             self.error.emit(f"An unexpected error occurred during indexing.\nError: {e}")
         finally:
-            self._is_indexing = False  # Ensure flag is reset
+            self._is_indexing = False
 
     def search(self, query, top_k):
-        """Dispatches search to the correct method based on query type."""
         if self.image_features is None:
             self.error.emit("Please index a directory before searching.")
             return []
         
-        if isinstance(query, str) and os.path.isfile(query): # Query is an image path
+        if isinstance(query, str) and os.path.isfile(query):
             return self._search_by_image(query, top_k)
-        elif isinstance(query, str): # Query is a text description
+        elif isinstance(query, str):
             return self._search_by_text(query, top_k)
         return []
 
     def _search_by_text(self, text_query, top_k):
-        """Performs search with a text query."""
         with torch.no_grad():
             text = open_clip.tokenize([text_query]).to(self.device)
             query_features = self.model.encode_text(text)
@@ -190,7 +181,6 @@ class ImageEngine(QObject):
             return [(score.item(), self.image_paths[idx]) for score, idx in zip(top_results.values, top_results.indices)]
 
     def _search_by_image(self, image_path, top_k):
-        """Performs search with an image query."""
         try:
             query_idx = self.image_paths.index(image_path)
             query_features = self.image_features[query_idx].unsqueeze(0)
@@ -199,7 +189,7 @@ class ImageEngine(QObject):
             return []
             
         similarities = (self.image_features @ query_features.T).squeeze()
-        similarities[query_idx] = -1.0 # Exclude the query image itself from results
+        similarities[query_idx] = -1.0
         
         top_results = torch.topk(similarities, k=min(top_k, len(self.image_paths) - 1))
         

@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# GUI frameworks (PyQt/PySide)
+*.qmlc
+*.jsc
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and debug
+*.log
+
+# Test cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+htmlcov/
+
+# Optional - compiled C/C++ artifacts
+*.o
+*.a
+*.out
+*.dll
+*.exe
+*.pdb
+
+# Optional - lock files (if using poetry/pipenv)
+poetry.lock
+Pipfile.lock
