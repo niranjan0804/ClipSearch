@@ -124,26 +124,52 @@ class MainWindow(QtWidgets.QMainWindow):
         main_layout.addLayout(top_controls_layout)
 
         # --- Search Controls Layout ---
-        search_layout = QtWidgets.QHBoxLayout()
+        # --- Search Controls Layout (NEW VERSION) ---
+        search_groupbox = QtWidgets.QGroupBox("Search")
+        search_layout = QtWidgets.QHBoxLayout(search_groupbox)
+
+        # Left side: Text Search
+        text_search_layout = QtWidgets.QVBoxLayout()
         self.search_input = QtWidgets.QLineEdit()
         self.search_input.setPlaceholderText("Enter a text description to search for...")
         self.search_input.returnPressed.connect(self.search_by_text)
-        search_layout.addWidget(self.search_input)
-
+        text_search_layout.addWidget(self.search_input)
         self.search_text_button = QtWidgets.QPushButton(QtGui.QIcon.fromTheme("edit-find"), "Find by Text")
         self.search_text_button.clicked.connect(self.search_by_text)
-        search_layout.addWidget(self.search_text_button)
+        text_search_layout.addWidget(self.search_text_button)
+        search_layout.addLayout(text_search_layout, stretch=3) # Give text search more space
 
-        self.search_image_button = QtWidgets.QPushButton(QtGui.QIcon.fromTheme("system-search"), "Find by Image")
+        # Middle: Vertical Separator
+        separator = QtWidgets.QFrame()
+        separator.setFrameShape(QtWidgets.QFrame.VLine)
+        separator.setFrameShadow(QtWidgets.QFrame.Sunken)
+        search_layout.addWidget(separator)
+
+        # Right side: Image Search
+        image_search_layout = QtWidgets.QVBoxLayout()
+        # --- OUR NEW WIDGET IS CREATED HERE ---
+        self.image_drop_zone = ImageDropLabel()
+        self.image_drop_zone.setMinimumHeight(50)
+        self.image_drop_zone.image_dropped.connect(self.search_by_dropped_image)
+        image_search_layout.addWidget(self.image_drop_zone)
+
+        # We still keep the button for accessibility
+        self.search_image_button = QtWidgets.QPushButton(QtGui.QIcon.fromTheme("system-search"), "... or Find by Clicking")
         self.search_image_button.clicked.connect(self.select_and_search_by_image)
-        search_layout.addWidget(self.search_image_button)
-        
-        search_layout.addWidget(QtWidgets.QLabel("Results:"))
+        image_search_layout.addWidget(self.search_image_button)
+        search_layout.addLayout(image_search_layout, stretch=2) # Give image search less space
+
+        # Far Right: Results Count
+        results_count_layout = QtWidgets.QVBoxLayout()
+        results_count_layout.addWidget(QtWidgets.QLabel("Results:"))
         self.top_k_spinbox = QtWidgets.QSpinBox()
         self.top_k_spinbox.setRange(1, config.MAX_TOP_K)
         self.top_k_spinbox.setValue(config.DEFAULT_TOP_K)
-        search_layout.addWidget(self.top_k_spinbox)
-        main_layout.addLayout(search_layout)
+        results_count_layout.addWidget(self.top_k_spinbox)
+        results_count_layout.addStretch()
+        search_layout.addLayout(results_count_layout)
+
+        main_layout.addWidget(search_groupbox)
 
         # --- Results Display ---
         self.results_list = QtWidgets.QListWidget()
