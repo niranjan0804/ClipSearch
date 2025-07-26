@@ -252,6 +252,30 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.set_ui_enabled(False)
                 top_k = self.top_k_spinbox.value()
                 self._start_search(query, top_k)
+    
+    @QtCore.pyqtSlot(str)
+    def search_by_dropped_image(self, query_path):
+        """
+        Starts a search triggered by a file being dropped onto the ImageDropLabel.
+        This is a slot connected to the image_dropped signal.
+        """
+        if not self.current_directory:
+            self.show_error_message("Please select an image directory before searching.")
+            return
+
+        # We must normalize the path, as it comes from an external source
+        query_path = os.path.normpath(query_path)
+
+        if os.path.exists(query_path):
+            self.status_bar.showMessage(f"Searching for images similar to {os.path.basename(query_path)}...")
+            self.set_ui_enabled(False)
+            top_k = self.top_k_spinbox.value()
+            
+            # Reuse our existing search helper method. It's that simple!
+            self._start_search(query_path, top_k)
+        else:
+            # This case is unlikely with drag-and-drop, but good to have
+            self.show_error_message(f"Dropped file not found: {query_path}")
 
     def _start_search(self, query, top_k):
         """
