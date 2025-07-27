@@ -37,11 +37,6 @@ AVAILABLE_MODELS = {
         "model_name": "ViT-H-14",
         "pretrained": "laion2b_s32b_b79k",
         "notes": "State-of-the-art. Very slow. Requires a high-end GPU (12GB+ VRAM)."
-    },
-    "Mobile (MobileCLIP-B)": {
-        "model_name": "mobileclip_b",
-        "pretrained": "laion2b_s32b_b88k",
-        "notes": "Extremely fast, lower quality. Ideal for laptops or older CPUs."
     }
 }
 
