@@ -1,5 +1,3 @@
-# In clip_search/core/image_engine.py (CORRECTED VERSION)
-
 import os
 import hashlib
 import pickle
@@ -8,8 +6,16 @@ import open_clip
 from PIL import Image
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot # <-- Import pyqtSlot
 
-# Use relative import to access config from a sibling package
-from .. import config
+from clip_search import config
+import sys
+
+# Check if the script is running as a bundled PyInstaller executable
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # If it is, point the Hugging Face cache to a folder inside our app.
+    # This will be the location where we bundle the default model.
+    # This MUST match the destination folder in the PyInstaller --add-data flag.
+    cache_dir = os.path.join(sys._MEIPASS, 'hf_cache')
+    os.environ['HUGGING_FACE_HUB_CACHE'] = cache_dir
 
 # Disable PIL's image size limit to handle large images
 Image.MAX_IMAGE_PIXELS = None

@@ -5,8 +5,8 @@ import os
 from PyQt5 import QtWidgets, QtGui, QtCore
 
 # Import our custom modules
-from .. import config
-from ..core.image_engine import ImageEngine
+from clip_search import config
+from clip_search.core.image_engine import ImageEngine
 
 class ImageDropLabel(QtWidgets.QLabel):
     """A custom QLabel that accepts image file drops."""
@@ -40,7 +40,7 @@ class ImageDropLabel(QtWidgets.QLabel):
             # Get the path of the first file
             file_path = event.mimeData().urls()[0].toLocalFile()
             # Check if the file is a supported image type
-            from ..core.image_engine import is_image_file # Local import to avoid circular dependency
+            from clip_search.core.image_engine import is_image_file # Local import to avoid circular dependency
             if is_image_file(file_path):
                 event.acceptProposedAction()
                 self.setProperty("is_active", "true") # Set a property for styling

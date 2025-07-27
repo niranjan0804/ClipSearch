@@ -4,7 +4,7 @@ import sys
 from PyQt5 import QtWidgets
 
 # Import the MainWindow class from our gui package
-from .gui.main_window import MainWindow
+from clip_search.gui.main_window import MainWindow
 
 def main():
     """
